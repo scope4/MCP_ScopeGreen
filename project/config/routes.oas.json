@@ -1,0 +1,719 @@
+{
+    "info": {
+      "title": "LCA Metrics API",
+      "version": "1.0.0",
+      "description": "API for searching and retrieving Life Cycle Assessment (LCA) metrics data for various materials and products. Use this API to access accurate environmental impact data for sustainability analysis and reporting.",
+      "contact": {
+        "name": "LCAbench Support",
+        "url": "https://github.com/lca-metrics-tool"
+      }
+    },
+    "openapi": "3.1.0",
+    "components": {
+      "schemas": {
+        "HealthResponse": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Health status of the API"
+            }
+          }
+        },
+        "MetricsSearchRequest": {
+          "type": "object",
+          "required": [
+            "item_name"
+          ],
+          "properties": {
+            "item_name": {
+              "type": "string",
+              "description": "Name of the item or material to find metrics for"
+            },
+            "year": {
+              "type": "string",
+              "description": "Year of the requested data ≥ 2020"
+            },
+            "geography": {
+              "type": "string",
+              "description": "Region for the requested data"
+            },
+            "metric": {
+              "type": "string",
+              "enum": [
+                "Carbon footprint",
+                "EF3.1 Score",
+                "Land Use"
+              ],
+              "default": "Carbon footprint"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "lite",
+                "pro"
+              ],
+              "default": "lite",
+              "description": "'pro' is accepted but currently executed as lite"
+            },
+            "web_mode": {
+              "type": "boolean",
+              "default": false
+            },
+            "num_matches": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3,
+              "default": 1
+            },
+            "domain": {
+              "type": "string",
+              "enum": [
+                "Materials & Products",
+                "Processing",
+                "Transport",
+                "Energy",
+                "Direct emissions"
+              ],
+              "default": "Materials & Products"
+            },
+            "not_english": {
+              "type": "boolean",
+              "default": false
+            },
+            "unit": {
+              "type": "string"
+            }
+          }
+        },
+        "MetricDetails": {
+          "type": "object",
+          "required": [
+            "name",
+            "value",
+            "unit"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string"
+            }
+          }
+        },
+        "MetricMatch": {
+          "type": "object",
+          "required": [
+            "rank",
+            "matched_name",
+            "metric"
+          ],
+          "properties": {
+            "rank": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "matched_name": {
+              "type": "string"
+            },
+            "metric": {
+              "$ref": "#/components/schemas/MetricDetails"
+            },
+            "year": {
+              "type": "integer",
+              "nullable": true
+            },
+            "geography": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "source_link": {
+              "type": "string",
+              "format": "uri",
+              "nullable": true
+            },
+            "conversion_info": {
+              "type": "string"
+            }
+          }
+        },
+        "MetricsSearchResponse": {
+          "type": "object",
+          "required": [
+            "matches",
+            "explanation"
+          ],
+          "properties": {
+            "matches": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetricMatch"
+              }
+            },
+            "explanation": {
+              "type": "string"
+            }
+          }
+        },
+        "NoMatchResponse": {
+          "type": "object",
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "AvailableMetricsResponse": {
+          "type": "object",
+          "required": [
+            "metrics"
+          ],
+          "properties": {
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "ErrorResponse": {
+          "type": "object",
+          "required": [
+            "error"
+          ],
+          "properties": {
+            "error": {
+              "type": "object",
+              "required": [
+                "code",
+                "message"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "details": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "BAD_REQUEST": {
+          "description": "Bad Request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              "examples": {
+                "InvalidRequest": {
+                  "value": {
+                    "error": {
+                      "code": "INVALID_REQUEST",
+                      "message": "The request contains invalid parameters"
+                    }
+                  }
+                },
+                "MissingRequiredParameter": {
+                  "value": {
+                    "error": {
+                      "code": "INVALID_FORMAT",
+                      "message": "The request format is invalid",
+                      "details": [
+                        {
+                          "query": {
+                            "item_name": [
+                              "Missing data for required field."
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "UNPROCESSABLE_ENTITY": {
+          "description": "Validation error (HTTP 422)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              "examples": {
+                "ValidationError": {
+                  "value": {
+                    "error": {
+                      "code": "INVALID_FORMAT",
+                      "message": "The request format is invalid",
+                      "details": [
+                        {
+                          "field": "metric",
+                          "message": "Must be one of the supported metrics"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "DEFAULT_ERROR": {
+          "description": "Internal server error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              "examples": {
+                "SystemError": {
+                  "value": {
+                    "error": {
+                      "code": "SERVICE_UNAVAILABLE",
+                      "message": "The service is temporarily unavailable. Please try again later."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TOO_MANY_REQUESTS": {
+          "description": "Rate limit exceeded",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              "examples": {
+                "RateLimitExceeded": {
+                  "value": {
+                    "error": {
+                      "code": "RATE_LIMIT_EXCEEDED",
+                      "message": "Rate limit exceeded. Please try again later."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "PROCESSING_ERROR": {
+          "description": "Processing Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              "examples": {
+                "ProcessingError": {
+                  "value": {
+                    "error": {
+                      "code": "PROCESSING_ERROR",
+                      "message": "Error processing request"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "ApiKeyAuth": {
+          "type": "apiKey",
+          "in": "header",
+          "name": "Authorization",
+          "description": "API key authentication. Format: 'Bearer YOUR_API_KEY'"
+        }
+      }
+    },
+    "security": [
+      {
+        "ApiKeyAuth": []
+      }
+    ],
+    "tags": [
+      {
+        "name": "LCA Metrics",
+        "description": "Endpoints for retrieving environmental impact data"
+      }
+    ],
+    "paths": {
+      "/health": {
+        "get": {
+          "summary": "Health check endpoint",
+          "x-zuplo-route": {
+            "corsPolicy": "anything-goes",
+            "handler": {
+              "export": "urlForwardHandler",
+              "module": "$import(@zuplo/runtime)",
+              "options": {
+                "baseUrl": "${env.BACKEND_URL}",
+                "path": "/health"
+              }
+            },
+            "policies": {
+              "inbound": [
+                "upstream-gcp-service-auth-inbound"
+              ],
+              "outbound": []
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "API is healthy",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HealthResponse"
+                  },
+                  "examples": {
+                    "HealthyResponse": {
+                      "value": {
+                        "status": "healthy"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "500": {
+              "$ref": "#/components/responses/DEFAULT_ERROR"
+            }
+          },
+          "x-internal": true,
+          "operationId": "3ab05753-6845-4b3c-a842-06e731ef7ef0"
+        }
+      },
+      "/api/metrics/available": {
+        "get": {
+          "summary": "Get the list of available metrics",
+          "x-zuplo-route": {
+            "corsPolicy": "anything-goes",
+            "handler": {
+              "export": "urlForwardHandler",
+              "module": "$import(@zuplo/runtime)",
+              "options": {
+                "baseUrl": "${env.BACKEND_URL}",
+                "path": "/api/metrics/available"
+              }
+            },
+            "policies": {
+              "inbound": [
+                "upstream-gcp-service-auth-inbound"
+              ],
+              "outbound": []
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AvailableMetricsResponse"
+                  },
+                  "examples": {
+                    "MetricsList": {
+                      "value": {
+                        "metrics": [
+                          "Carbon footprint",
+                          "EF3.1 Score",
+                          "Land Use"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "500": {
+              "$ref": "#/components/responses/DEFAULT_ERROR"
+            }
+          },
+          "tags": [
+            "LCA Metrics"
+          ],
+          "operationId": "540ec935-af1d-47d3-94a1-2d5577f5be2f"
+        }
+      },
+      "/api/metrics/search": {
+        "get": {
+          "summary": "Search for environmental metrics data by item name",
+          "x-zuplo-route": {
+            "corsPolicy": "anything-goes",
+            "handler": {
+              "export": "urlForwardHandler",
+              "module": "$import(@zuplo/runtime)",
+              "options": {
+                "baseUrl": "${env.BACKEND_URL}",
+                "path": "/api/metrics/search"
+              }
+            },
+            "policies": {
+              "inbound": [
+                "rate-limit-policy",
+                "quota-inbound",
+                "api-key-inbound",
+                "caching-inbound",
+                "table-filter-policy",
+                "upstream-gcp-service-auth-inbound"
+              ],
+              "outbound": []
+            }
+          },
+          "parameters": [
+            {
+              "name": "item_name",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "year",
+              "in": "query",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "geography",
+              "in": "query",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "metric",
+              "in": "query",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "Carbon footprint",
+                  "EF3.1 Score",
+                  "Land Use"
+                ],
+                "default": "Carbon footprint"
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "lite",
+                  "pro"
+                ],
+                "default": "lite"
+              },
+              "description": "'pro' currently behaves as lite."
+            },
+            {
+              "name": "web_mode",
+              "in": "query",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            {
+              "name": "num_matches",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3,
+                "default": 1
+              }
+            },
+            {
+              "name": "domain",
+              "in": "query",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "Materials & Products",
+                  "Processing",
+                  "Transport",
+                  "Energy",
+                  "Direct emissions"
+                ],
+                "default": "Materials & Products"
+              }
+            },
+            {
+              "name": "not_english",
+              "in": "query",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            {
+              "name": "unit",
+              "in": "query",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "X-Table-Filter",
+              "in": "header",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/MetricsSearchResponse"
+                      },
+                      {
+                        "$ref": "#/components/schemas/NoMatchResponse"
+                      }
+                    ]
+                  },
+                  "examples": {
+                    "SuccessfulSearch": {
+                      "value": {
+                        "matches": [
+                          {
+                            "rank": 1,
+                            "matched_name": "Cotton T‑shirt",
+                            "metric": {
+                              "name": "Carbon footprint",
+                              "value": 8.3,
+                              "unit": "kg CO2 eq / kg"
+                            },
+                            "year": 2020,
+                            "geography": "FR",
+                            "source": "Agribalyse v3.1",
+                            "source_link": "https://agribalyse.ademe.fr/data",
+                            "conversion_info": "Unit conversion not requested."
+                          }
+                        ],
+                        "explanation": "The top match represents the cradle‑to‑gate carbon footprint of a cotton T‑shirt produced in France in 2020, sourced from Agribalyse v3.1."
+                      }
+                    },
+                    "MultipleMatchesExample": {
+                      "value": {
+                        "matches": [
+                          {
+                            "rank": 1,
+                            "matched_name": "Polyester fabric (woven)",
+                            "metric": {
+                              "name": "Carbon footprint",
+                              "value": 5.6,
+                              "unit": "kg CO2 eq / kg"
+                            },
+                            "year": 2021,
+                            "geography": "EU",
+                            "source": "Idemat 2022",
+                            "source_link": "https://example.com/idemat/woven",
+                            "conversion_info": "Unit conversion not requested."
+                          },
+                          {
+                            "rank": 2,
+                            "matched_name": "Polyester fabric (knitted)",
+                            "metric": {
+                              "name": "Carbon footprint",
+                              "value": 4.2,
+                              "unit": "kg CO2 eq / kg"
+                            },
+                            "year": 2021,
+                            "geography": "GL",
+                            "source": "Idemat 2022",
+                            "source_link": "https://example.com/idemat/knitted",
+                            "conversion_info": "Unit conversion not requested."
+                          }
+                        ],
+                        "explanation": "First match is woven polyester; second is knitted variant."
+                      }
+                    },
+                    "ConvertedUnitExample": {
+                      "value": {
+                        "matches": [
+                          {
+                            "rank": 1,
+                            "matched_name": "Cotton T‑shirt",
+                            "metric": {
+                              "name": "Carbon footprint",
+                              "value": 0.0083,
+                              "unit": "kg CO2 eq / g"
+                            },
+                            "year": 2020,
+                            "geography": "FR",
+                            "source": "Agribalyse v3.1",
+                            "source_link": "https://agribalyse.ademe.fr/data",
+                            "conversion_info": "Converted functional unit from kg to g (divide value by 1 000)."
+                          }
+                        ],
+                        "explanation": "Unit converted from kg to g as requested."
+                      }
+                    },
+                    "NoMatchFound": {
+                      "value": {
+                        "message": "No good match was found, retry with a different item name"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "$ref": "#/components/responses/BAD_REQUEST"
+            },
+            "422": {
+              "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+            },
+            "429": {
+              "$ref": "#/components/responses/TOO_MANY_REQUESTS"
+            },
+            "500": {
+              "$ref": "#/components/responses/DEFAULT_ERROR"
+            }
+          },
+          "tags": [
+            "LCA Metrics"
+          ],
+          "operationId": "5b40dc28-eec7-427a-89dc-04dc25869a3f"
+        }
+      }
+    }
+  }
