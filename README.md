@@ -1,0 +1,1 @@
+MCP server for integration of ScopeGreen API with LLMs

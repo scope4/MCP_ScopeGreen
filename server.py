@@ -2,28 +2,11 @@
 import httpx
 import json
 import os
-from dotenv import load_dotenv
+from typing import Optional, List, Dict, Any, Literal
 from fastmcp import FastMCP
-import pathlib
-from typing import Optional, List, Dict, Any, Literal # Added Literal
 
-# --- Get the directory where this script is located ---
-SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
-
-# --- Configuration ---
-BASE_URL = "https://scopegreen-main-1a948ab.d2.zuplo.dev" # Base URL from docs
-
-# Load environment variables from .env file (should be in SCRIPT_DIR)
-load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
-
-# Get the API key from the environment variable
-api_key = os.getenv("SCOPEGREEN_API_KEY")
-if not api_key:
-    raise ValueError("SCOPEGREEN_API_KEY not found in environment variables or .env file")
-
-# --- Create MCP Server Instance ---
-# Add dependencies needed for installation
-mcp = FastMCP("ScopeGreen LCA", dependencies=["httpx", "python-dotenv"])
+# Create MCP Server Instance
+mcp = FastMCP("ScopeGreen LCA", dependencies=["httpx"])
 
 @mcp.tool()
 async def search_lca_metrics(
@@ -34,8 +17,7 @@ async def search_lca_metrics(
     num_matches: Optional[Literal[1, 2, 3]] = 1,
     unit: Optional[str] = None,
     mode: Optional[Literal["lite", "pro"]] = "lite",
-    # --- Make domain slightly more prominent if often needed ---
-    domain: Optional[Literal["Materials & Products", "Processing", "Transport", "Energy", "Direct emissions"]] = None, # Default to None to encourage LLM consideration
+    domain: Optional[Literal["Materials & Products", "Processing", "Transport", "Energy", "Direct emissions"]] = None,
     not_english: Optional[bool] = False
 ) -> Dict[str, Any]:
     """
@@ -60,19 +42,18 @@ async def search_lca_metrics(
     Returns:
         A dictionary containing the search results ('matches' and 'explanation')
         or a message indicating no match was found.
-
-    Example Usage for LLM:
-    - User asks for 'carbon footprint of electricity in Germany vs USA':
-        - Call 1: search_lca_metrics(item_name='electricity grid mix', metric='Carbon footprint', geography='DE', domain='Energy')
-        - Call 2: search_lca_metrics(item_name='electricity grid mix', metric='Carbon footprint', geography='US', domain='Energy')
-    - User asks for 'land use of cotton t-shirt production':
-        - Call: search_lca_metrics(item_name='cotton t-shirt', metric='Land Use', domain='Materials & Products') # Domain might be optional here if item_name is clear
     """
+    # Get the API key from the environment variable (set by Claude Desktop config)
+    api_key = os.getenv("SCOPEGREEN_API_KEY")
+    if not api_key:
+        return {"error": "SCOPEGREEN_API_KEY not found in environment variables"}
+
+    # Base URL from docs
+    BASE_URL = "https://scopegreen-main-1a948ab.d2.zuplo.dev"
+    
     # --- Set default domain if not provided by LLM ---
-    # This ensures the backend default is explicitly handled if the LLM omits it,
-    # but the docstring strongly encourages the LLM to provide it.
     effective_domain = domain if domain is not None else "Materials & Products"
-    print(f"Executing ScopeGreen search for: '{item_name}' in domain '{effective_domain}'") # Add print statement for debugging
+    print(f"Executing ScopeGreen search for: '{item_name}' in domain '{effective_domain}'")
 
     headers = {"Authorization": f"Bearer {api_key}"}
     params = {
@@ -83,7 +64,7 @@ async def search_lca_metrics(
         "num_matches": num_matches,
         "unit": unit,
         "mode": mode,
-        "domain": effective_domain, # Use the potentially defaulted domain
+        "domain": effective_domain,
         "not_english": not_english,
     }
     # Filter out parameters with None values (except domain, which we defaulted)
@@ -91,15 +72,13 @@ async def search_lca_metrics(
 
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
         try:
-            print(f"Calling API with params: {filtered_params}") # Debug params
+            print(f"Calling API with params: {filtered_params}")
             response = await client.get("/api/metrics/search", params=filtered_params)
-            response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
-            print(f"API Response Status: {response.status_code}") # Debugging
-            # print(f"API Response Content: {response.text}") # More Debugging (optional)
+            response.raise_for_status()
+            print(f"API Response Status: {response.status_code}")
             return response.json()
         except httpx.HTTPStatusError as exc:
             print(f"HTTP error occurred: {exc.response.status_code} - {exc.response.text}")
-            # Return the actual error from the API if possible, helps the LLM understand failure
             try:
                 error_detail = exc.response.json()
             except json.JSONDecodeError:
@@ -115,13 +94,19 @@ async def search_lca_metrics(
 @mcp.tool()
 async def get_available_metrics() -> Dict[str, List[str]]:
     """Gets the list of available metric types from the ScopeGreen API."""
-    print("Executing ScopeGreen get_available_metrics") # Debugging
+    api_key = os.getenv("SCOPEGREEN_API_KEY")
+    if not api_key:
+        return {"error": "SCOPEGREEN_API_KEY not found in environment variables"}
+        
+    BASE_URL = "https://scopegreen-main-1a948ab.d2.zuplo.dev"
+    print("Executing ScopeGreen get_available_metrics")
+    
     headers = {"Authorization": f"Bearer {api_key}"}
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
         try:
             response = await client.get("/api/metrics/available")
             response.raise_for_status()
-            print(f"API Response Status: {response.status_code}") # Debugging
+            print(f"API Response Status: {response.status_code}")
             return response.json()
         except httpx.HTTPStatusError as exc:
             print(f"HTTP error occurred: {exc.response.status_code} - {exc.response.text}")
@@ -135,6 +120,6 @@ async def get_available_metrics() -> Dict[str, List[str]]:
 
 # --- Run the Server ---
 if __name__ == "__main__":
-    print(f"Starting ScopeGreen LCA MCP Server (Manual Tools), using base URL: {BASE_URL}")
-    print("Ensure your .env file contains SCOPEGREEN_API_KEY")
-    mcp.run() # Use 'mcp' instance here
+    print(f"Starting ScopeGreen LCA MCP Server, using base URL: https://scopegreen-main-1a948ab.d2.zuplo.dev")
+    print("Ensure Claude Desktop config contains SCOPEGREEN_API_KEY")
+    mcp.run()
