@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any, Literal # Added Literal
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 
 # --- Configuration ---
-BASE_URL = "https://scopegreen-main-1a948ab.d2.zuplo.dev/api/metrics/search" # Base URL from docs
+BASE_URL = "https://scopegreen-main-1a948ab.d2.zuplo.dev" # Base URL from docs
 
 # Load environment variables from .env file (should be in SCRIPT_DIR)
 load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
