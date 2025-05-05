@@ -1,1 +1,1 @@
-MCP server for integration of ScopeGreen API with LLMs
+MCP server for integration of ScopeGreen API with LLMs. Visit the docs to learn how to install it and use it: https://scopegreen-main-1a948ab.d2.zuplo.dev/docs/routes/claude
